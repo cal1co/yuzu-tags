@@ -42,6 +42,7 @@ func main() {
 
 	r.POST("/tag", addTagsToPost)
 	r.GET("/postTags/:id", getPostTags)
+	r.GET("/taggedPosts/:id", getTaggedPosts)
 
 	go func() {
 		if err := r.Run(":8083"); err != nil {
@@ -91,6 +92,25 @@ func getPostTags(c *gin.Context) {
 		fmt.Println(err)
 		c.JSON(http.StatusNotFound, fmt.Sprintf("Sorry, could not fetch tags results for post with id %v", post.PostId))
 		c.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 	c.JSON(http.StatusOK, post)
+}
+
+func getTaggedPosts(c *gin.Context) {
+	tag := c.Param("id")
+
+	iter := session.Query(`SELECT post_id FROM tags WHERE tag_name = ?`, tag).Iter()
+	var postId gocql.UUID
+	var posts []gocql.UUID
+	for iter.Scan(&postId) {
+		posts = append(posts, postId)
+	}
+	if err := iter.Close(); err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusNotFound, fmt.Sprintf("Sorry, could not fetch post results for tag %s", tag))
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	c.JSON(http.StatusOK, posts)
 }
